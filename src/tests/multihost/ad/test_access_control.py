@@ -26,15 +26,17 @@ def ssh_login(multihost, username):
     """
     client_hostname = multihost.client[0].sys_hostname
     client = pexpect_ssh(client_hostname, username, 'Secret123', debug=False)
-    cmd = 'echo > /var/log/secure'
-    multihost.client[0].run_command(cmd, raiseonerr=False)
+    # cmd = 'echo > /var/log/secure'
+    # multihost.client[0].run_command(cmd, raiseonerr=False)
+    log_str_before = multihost.client[0].get_file_contents('/var/log/secure').decode('utf-8')
     try:
         client.login()
     except SSHLoginException:
         return 'failed'
     except pexpect.EOF:
-        time.sleep(1)
+        time.sleep(10)
         log_str = multihost.client[0].get_file_contents('/var/log/secure').decode('utf-8')
+        log_str = log_str.replace(log_str_before, '')
         patt = re.compile(r'Access.*denied for user')
         if patt.search(log_str):
             return 'denied present'
