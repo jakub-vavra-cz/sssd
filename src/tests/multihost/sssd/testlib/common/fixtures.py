@@ -109,3 +109,26 @@ def create_testdir(session_multihost, request):
             machine.run_command(ad_rm_config_cmd)
 
     request.addfinalizer(remove_test_dir)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def journal_to_rsyslog(session_multihost, request):
+    """
+    Configure journal forwarding to rsyslog
+    @param session_multihost: Multihost fixture
+    @param request: Pytest request
+    """
+    cmd = session_multihost.client[0].run_command(
+        "test -f /etc/systemd/journald.conf", raiseonerr=False)
+    if cmd.returncode == 0:
+        session_multihost.client[0].run_command(
+            "sed -i 's/#ForwardToSyslog=no/ForwardToSyslog=yes/'"
+            " /etc/systemd/journald.conf",
+            raiseonerr=False
+        )
+        session_multihost.client[0].run_command(
+            "systemctl enable rsyslog", raiseonerr=False
+        )
+        session_multihost.client[0].run_command(
+            "systemctl start rsyslog", raiseonerr=False
+        )
