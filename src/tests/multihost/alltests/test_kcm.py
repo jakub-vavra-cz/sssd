@@ -121,8 +121,7 @@ class TestKcm(object):
         """
         :title: IDM-SSSD-TC: kcm_provider: Expired tickets are removed
         :id: db532785-a00f-4be9-b413-592e0550fe9c
-        :requirement: sssd-kcm does not appear to expire Kerberos tickets (RFE: sssd_kcm
-          should have the option to automatically delete the expired tickets)
+        :requirement: sssd-kcm does not appear to expire Kerberos tickets (RFE: sssd_kcm should have the option to automatically delete the expired tickets)
         :setup:
          1. Configure short ticket lifetime in krb5.
          2. Create a user.
