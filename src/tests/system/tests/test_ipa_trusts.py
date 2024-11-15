@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 from sssd_test_framework.roles.generic import GenericADProvider
 from sssd_test_framework.roles.ipa import IPA
+from sssd_test_framework.roles.client import Client
 from sssd_test_framework.topology import KnownTopologyGroup
 
 
@@ -60,3 +61,34 @@ def test_ipa_trusts__lookup_group_without_sid(ipa: IPA, trusted: GenericADProvid
     status = ipa.sssctl.domain_status(trusted.domain, online=True)
     assert "online status: offline" not in status.stdout.lower(), "AD domain went offline!"
     assert "online status: online" in status.stdout.lower(), "AD domain was not online!"
+
+
+@pytest.mark.importance("low")
+@pytest.mark.ticket(jira=["RHEL-4984", "SSSD-8151"])
+@pytest.mark.topology(KnownTopologyGroup.IPATrust)
+def test_ipa_trusts__mismatched_default_domain_suffix(client: Client, ipa: IPA, trusted: GenericADProvider):
+    """
+    :title: Mismatch between input and parsed domain name when default_domain_suffix is set.
+    :description:
+    :setup:
+        1. Create IPA external group "external-group" and add AD user "Administrator" as a member
+        2. Create IPA posix group "posix-group" and add "external-group" as a member
+        3. Configure default_domain_suffix to AD domain
+    :steps:
+        1. Try to login AD administrator user with ssh
+        2. Check domain logs
+    :expectedresults:
+        1. logiun succeeds
+        2. Logs do not contain "Mismatch between input domain name" message
+    :customerscenario: True
+    """
+    username = trusted.fqn("administrator")
+    external = ipa.group("external-group").add(external=True).add_member(username)
+    ipa.group("posix-group").add(gid=5001).add_member(external)
+    client.sssd.domain["default_domain_suffix"] = trusted.domain
+    client.sssd.stop()
+    client.sssd.start()
+
+    logs = client.fs.read(client.sssd.logs.domain())
+    assert client.auth.ssh.password(f"administrator@{ipa.domain}", "Secret123"), "User failed login!"
+    assert "Mismatch between input domain name" not in logs, "Error message found!"
