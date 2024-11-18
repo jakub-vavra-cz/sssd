@@ -63,9 +63,14 @@ class Testcifs(object):
         :expectedresults: wbinfo command should be successfull
         """
         realm = multihost.ad[0].realm
+        id_cmd_str = f"id administrator@{multihost.ad[0].domainname}"
+        id_cmd = multihost.client[0].run_command(id_cmd_str, raiseonerr=False)
+        id_cmd2 = multihost.master[0].run_command(id_cmd_str, raiseonerr=False)
         wb_cmd = 'wbinfo -i {}{}{}'.format(realm, '\\\\', "administrator")
         cmd = multihost.client[0].run_command(wb_cmd, raiseonerr=False)
-        assert cmd.returncode == 0
+        assert id_cmd.returncode == 0, "id failed on client."
+        assert id_cmd2.returncode == 0, "id failed on master."
+        assert cmd.returncode == 0, "wbinfo failed."
 
     @pytest.mark.tier2
     def test_0002_smb1mount(self, multihost):
