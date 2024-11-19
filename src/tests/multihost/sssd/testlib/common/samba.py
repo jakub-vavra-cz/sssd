@@ -145,18 +145,19 @@ class sambaTools(object):
         except subprocess.CalledProcessError:
             pytest.fail("kinit failed")
         self.host_tools.join_ad(self.adhost_realm, self.adhost_password,
-                                mem_sw='samba')
+                               mem_sw='samba')
+        # self.host_tools.join_ad(self.adhost_realm, self.adhost_password,
+        #                         mem_sw='adcli')
         self.host_tools.service_ctrl("restart", "sssd")
         self.smbadsconf()
         self.enable_idmapsss()
         restart_winbind = 'systemctl restart winbind'
         cmd = self.host.run_command(restart_winbind, raiseonerr=False)
-        if cmd.returncode != 0:
-            print(cmd.stdout_text, cmd.stderr_text)
-            cmd2 = self.host.run_command("journalctl -xeu winbind.service", raiseonerr=False)
-            print(cmd2.stdout_text, cmd2.stderr_text)
-            cmd2 = self.host.run_command("realm list --all -v", raiseonerr=False)
-            print(cmd2.stdout_text, cmd2.stderr_text)
+        print(cmd.stdout_text, cmd.stderr_text)
+        cmd2 = self.host.run_command("journalctl -xeu winbind.service", raiseonerr=False)
+        print(cmd2.stdout_text, cmd2.stderr_text)
+        cmd2 = self.host.run_command("realm list --all -v", raiseonerr=False)
+        print(cmd2.stdout_text, cmd2.stderr_text)
         assert cmd.returncode == 0
         time.sleep(20)
 
