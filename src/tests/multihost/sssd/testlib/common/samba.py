@@ -148,9 +148,9 @@ class sambaTools(object):
                                mem_sw='samba')
         # self.host_tools.join_ad(self.adhost_realm, self.adhost_password,
         #                         mem_sw='adcli')
-        self.host_tools.service_ctrl("restart", "sssd")
         self.smbadsconf()
         self.enable_idmapsss()
+        self.host_tools.service_ctrl("restart", "sssd")
         restart_winbind = 'systemctl restart winbind'
         cmd = self.host.run_command(restart_winbind, raiseonerr=False)
         print(cmd.stdout_text, cmd.stderr_text)
@@ -158,6 +158,9 @@ class sambaTools(object):
         print(cmd2.stdout_text, cmd2.stderr_text)
         cmd2 = self.host.run_command("realm list --all -v", raiseonerr=False)
         print(cmd2.stdout_text, cmd2.stderr_text)
+        self.host_tools.service_ctrl("restart", "sssd")
+        cmd3 = self.host.run_command("systemctl status sssd", raiseonerr=False)
+        print(cmd3.stdout_text, cmd3.stderr_text)
         assert cmd.returncode == 0
         time.sleep(20)
 
