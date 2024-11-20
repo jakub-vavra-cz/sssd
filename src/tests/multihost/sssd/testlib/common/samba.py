@@ -144,6 +144,22 @@ class sambaTools(object):
             self.host.run_command(kinit, stdin_text=self.adhost_password)
         except subprocess.CalledProcessError:
             pytest.fail("kinit failed")
+
+
+        cmd = self.host.run_command('hostname', raiseonerr=False)
+        old_hostname = cmd.stdout_text.rstrip()
+        ad_domain = self.adhost_realm.lower()
+        new_hostname = "master0." + ad_domain
+        # Temporary way of changing hostname
+        self.host.run_command(
+            f'hostname {new_hostname}', raiseonerr=False
+        )
+        # Permanent way of changing hostname
+        self.host.run_command(
+            f'hostnamectl set-hostname {new_hostname}', raiseonerr=False
+        )
+
+
         self.host_tools.join_ad(self.adhost_realm, self.adhost_password,
                                mem_sw='samba')
         # self.host_tools.join_ad(self.adhost_realm, self.adhost_password,
@@ -161,6 +177,15 @@ class sambaTools(object):
         self.host_tools.service_ctrl("restart", "sssd")
         cmd3 = self.host.run_command("systemctl status sssd", raiseonerr=False)
         print(cmd3.stdout_text, cmd3.stderr_text)
+        cmd4 = self.host.run_command("ls -laZ /etc/sssd/", raiseonerr=False)
+        print(cmd4.stdout_text, cmd4.stderr_text)
+        cmd5 = self.host.run_command("ls -laZ /etc/krb5.keytab", raiseonerr=False)
+        print(cmd5.stdout_text, cmd5.stderr_text)
+        self.host.run_command("cp /var/log/sssd/ldap_child.log /tmp/ldap_child.log", raiseonerr=False)
+        ktutil_cmd = f'{{ echo "rkt /etc/krb5.keytab"; ' \
+            f'sleep 1; echo "list"; ' \
+            f'sleep 1; echo "quit"; }} | ktutil'
+        self.host.run_command(ktutil_cmd, raiseonerr=False)
         assert cmd.returncode == 0
         time.sleep(20)
 
