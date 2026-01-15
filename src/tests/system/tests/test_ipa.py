@@ -398,6 +398,56 @@ def test_ipa__check_gssapi_authentication_indicator(client: Client, ipa: IPA):
     assert "indicators: 2" in log2, "String `indicators: 2` not found in logs!"
 
 
+@pytest.mark.ticket(jira="RHEL-114468")
+@pytest.mark.importance("low")
+@pytest.mark.topology(KnownTopology.IPA)
+def test_ipa__gssapi_kcm_spam(client: Client, ipa: IPA):
+    """
+    :title: Gssapi kcm log spam
+    :description:
+        Check that using gssapi ssh authetication is not spamming sssd_kcm.log
+    :setup:
+        1. Configure SSSD for ssh and gssapi
+        2. Start SSSD
+        3. Create user
+    :steps:
+        1. Login as the test user and obtain ticket
+        2. Try ssh with gssapi authentication
+        3. Check log if there is "Failed to resolve cache by UUID"
+    :expectedresults:
+        1. Login successful and ticket obtained
+        2. SSH connection is successful
+        3. "Failed to resolve cache by UUID" is not in sssd_kcm.log
+    :customerscenario: True
+    """
+    user = ipa.user("user-1").add(password="Secret123")
+    password = "Secret123"
+    #client.sssd.common.gssapi()
+
+    client.sssd.authselect.select("sssd", ["with-gssapi", "with-sudo", "with-mkhomedir"])
+    client.sssd.enable_responder("sudo")
+
+    client.sssd.domain["pam_gssapi_services"] = "sudo, sudo-i"
+    client.sssd.domain["pam_gssapi_check_upn"] = "False"
+    client.sssd.domain["debug_level"] = "9"
+
+    client.sssd.sssd["services"] = "ssh, nss, pam"
+    client.sssd.domain["krb5_realm"] = ipa.host.domain.upper()
+    client.sssd.domain["krb5_server"] = ipa.host.hostname
+    client.sssd.start()
+
+    with client.ssh(user.name, password) as ssh:
+        ssh.run(f"kinit {user.name}@{ipa.host.realm}", input=password)
+        ssh.run("klist")
+        ssh.run("touch /home/user-1/foo.txt")
+        #ssh.run(f"ssh -l {user.name} client.test -o StrictHostKeyChecking=no -vvk 'whoami'")
+        #ssh.run(f"scp -o StrictHostKeyChecking=no -o GSSAPIAuthentication=yes {user.name}@client.test:/var/log/journald.log /home/user-1/journald.log || true")
+        ssh.run(f"sftp -o StrictHostKeyChecking=no -o GSSAPIAuthentication=yes -o GSSAPIKeyExchange=yes {user.name}@client.test:/home/user-1/foo.txt /home/user-1/foo2.txt")
+        ssh.disconnect()
+    log1 = client.fs.read(client.sssd.logs.kcm)
+    assert "Failed to resolve cache" not in log1, "Spamming found in logs!"
+
+
 @pytest.mark.importance("high")
 @pytest.mark.topology(KnownTopology.IPA)
 @pytest.mark.parametrize(
