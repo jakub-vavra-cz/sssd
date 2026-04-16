@@ -610,3 +610,48 @@ def test_kcm__configure_max_uid_ccaches_with_different_values(client: Client, kd
         with client.auth.kerberos(ssh) as krb:
             assert krb.kdestroy(all=True).rc == 0, "kdestroy all tickets failed!"
             assert krb.kinit("user65", password=password).rc == 0, "kinit failed!"
+
+
+@pytest.mark.importance("high")
+@pytest.mark.ticket(bz=2457467, jira=["RHEL-167757", "RHEL-167758"])
+@pytest.mark.topology(KnownTopology.Client)
+def test_kcm__sssd_kcm_fails_with_krb5_renew_interval(client: Client, kdc: KDC):
+    """
+    :title: sssd-kcm fails to start if krb5_renew_interval is specified in sssd.conf
+    :setup:
+        1. Configure krb5_renew_interval in sssd.conf
+        2. Remove kcm log files
+    :steps:
+        1. Start SSSD and sssd-kcm
+        2. Check the log file for the error message
+    :expectedresults:
+        1. Service sssd-kcm starts
+        2. The error message "Failed setting krb5 options for renewal" is not present
+    :customerscenario: True
+    """
+    kcm_log_file = "/var/log/sssd/sssd_kcm.log"
+    client.fs.truncate(kcm_log_file)
+
+    client.sssd.stop()
+    client.svc.stop("sssd-kcm")
+    client.sssd.common.kcm(kdc)
+    client.sssd.kcm["tgt_renewal"] = "true"
+    client.sssd.kcm["krb5_renewable_lifetime"] = "7d"
+    client.sssd.kcm["krb5_renew_interval"] = "5m"
+    client.sssd.config_apply()
+    client.sssd.config.remove_option("kcm", "debug_level")
+    result = client.host.conn.run(
+        f"sed -i 's/^debug_level = .*$//' /etc/sssd/sssd.conf",
+        raise_on_error=False,
+    )
+    client.sssd.start()
+
+    assert client.svc.start("sssd-kcm").rc == 0, "KCM start failed!"
+    time.sleep(60)
+    log = client.fs.read(kcm_log_file)
+    result = client.host.conn.run(
+        f"cat {kcm_log_file}",
+        raise_on_error=False,
+    )
+    assert "Failed setting krb5 options for renewal [12]: Cannot allocate memory" not in log, \
+        "The error message is present in the log file"
