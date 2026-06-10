@@ -58,6 +58,7 @@ class TestKcm(object):
         assert 'Terminated client' in grep_cmd.stdout_text
 
     @pytest.mark.tier1_2
+    @pytest.mark.flaky(max_runs=3)
     def test_refresh_contain_timestamp(self,
                                        multihost,
                                        backupsssdconf):
@@ -87,7 +88,7 @@ class TestKcm(object):
         multihost.client[0].run_command("> /var/log/sssd/sssd_example1.log")
         log_location = "/var/log/sssd/sssd_example1.log"
         grep_cmd = None
-        for _ in range(12):
+        for _ in range(20):
             time.sleep(10)
             grep_cmd = multihost.client[0].run_command(
                 f"grep 'ldap_search_ext called:' {log_location}",

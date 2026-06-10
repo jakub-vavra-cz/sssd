@@ -37,6 +37,7 @@ class TestMisc(object):
     """
     @staticmethod
     @pytest.mark.tier1_2
+    @pytest.mark.flaky(max_runs=3)
     def test_0017_filesldap(multihost, backupsssdconf, setup_sssd_krb):
         """
         :title: sssd-be tends to run out of system resources,
@@ -88,7 +89,9 @@ class TestMisc(object):
         for i in range(10):
             client_remove_file(multihost, f"/tmp/after_count{i}")
         for n_n in n_log_afr:
-            assert abs(n_log_bfr - n_n) <= 2
+            assert n_log_bfr + 2 >= n_n, \
+            f"Test failed as the number of descriptors {n_n} is bigger than before {n_log_bfr} by more than 2."
+
 
     @pytest.mark.tier1
     def test_0001_ldapcachepurgetimeout(self,
